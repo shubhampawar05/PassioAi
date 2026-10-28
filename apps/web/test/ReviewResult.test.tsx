@@ -107,3 +107,36 @@ describe("SummaryCard", () => {
     expect(screen.getByText("Not available")).toBeInTheDocument();
   });
 });
+
+describe("ReviewResult for label scans", () => {
+  const label = result({
+    inputType: "label",
+    inputSummary: "label photo (image/jpeg, 120 KB)",
+    candidates: [
+      {
+        name: "Crunchy Peanut Butter",
+        providerRef: null,
+        providerDetails: { ingredientsText: "roasted peanuts; sugar; palm oil; salt" },
+        servings: [{ label: "tbsp (16 g)", weightG: 16, defaultQuantity: 2, nutrients: { calories: 95, proteinG: 4, carbohydratesG: 3.5, fatG: 8 } }],
+      },
+    ],
+  });
+
+  it("shows ingredients with an allergen reminder and no allergen claim", () => {
+    render(<ReviewResult result={label} saving={false} onSave={noop} onRetryText={noop} onCancel={noop} />);
+    expect(screen.getByText(/roasted peanuts; sugar; palm oil; salt/)).toBeInTheDocument();
+    expect(screen.getByText(/Always check the package for allergens/)).toBeInTheDocument();
+    expect(screen.queryByText(/allergen[- ]free|contains no allergens|safe for/i)).not.toBeInTheDocument();
+  });
+
+  it("defaults to the label's serving count (2 × tbsp = 190 kcal)", () => {
+    render(<ReviewResult result={label} saving={false} onSave={noop} onRetryText={noop} onCancel={noop} />);
+    expect(screen.getByLabelText("Quantity")).toHaveValue(2);
+    expect(screen.getByText("190 kcal")).toBeInTheDocument();
+  });
+
+  it("gives a retake hint when the label could not be read", () => {
+    render(<ReviewResult result={{ ...label, candidates: [] }} saving={false} onSave={noop} onRetryText={noop} onCancel={noop} />);
+    expect(screen.getByText(/Retake the photo closer/)).toBeInTheDocument();
+  });
+});

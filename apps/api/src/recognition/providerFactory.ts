@@ -1,6 +1,13 @@
 import type { AppConfig } from "../config.js";
 import { AppError } from "../errors.js";
+import {
+  MockGuidanceProvider,
+  PassioGuidanceProvider,
+  UnconfiguredGuidanceProvider,
+  type NutritionGuidanceProvider,
+} from "../advisor/guidanceProvider.js";
 import { MockProvider } from "./mockProvider.js";
+import { PassioClient } from "./passioClient.js";
 import { PassioProvider } from "./passioProvider.js";
 import type { FoodRecognitionProvider } from "./types.js";
 
@@ -16,6 +23,9 @@ class UnconfiguredProvider implements FoodRecognitionProvider {
   async recognizeImage(): Promise<never> {
     this.fail();
   }
+  async recognizeLabel(): Promise<never> {
+    this.fail();
+  }
   async recognizeText(): Promise<never> {
     this.fail();
   }
@@ -25,7 +35,16 @@ class UnconfiguredProvider implements FoodRecognitionProvider {
 }
 
 export function createProvider(config: AppConfig["passio"]): FoodRecognitionProvider {
-  if (config.mode === "mock") return new MockProvider();
-  if (!config.apiKey) return new UnconfiguredProvider();
-  return new PassioProvider({ apiKey: config.apiKey, baseUrl: config.baseUrl, timeoutMs: config.timeoutMs });
+  return createProviders(config).recognition;
+}
+
+/** Builds recognition and guidance providers that share one PassioClient (one token cache). */
+export function createProviders(config: AppConfig["passio"]): {
+  recognition: FoodRecognitionProvider;
+  guidance: NutritionGuidanceProvider;
+} {
+  if (config.mode === "mock") return { recognition: new MockProvider(), guidance: new MockGuidanceProvider() };
+  if (!config.apiKey) return { recognition: new UnconfiguredProvider(), guidance: new UnconfiguredGuidanceProvider() };
+  const client = new PassioClient({ apiKey: config.apiKey, baseUrl: config.baseUrl, timeoutMs: config.timeoutMs });
+  return { recognition: new PassioProvider(client), guidance: new PassioGuidanceProvider(client) };
 }

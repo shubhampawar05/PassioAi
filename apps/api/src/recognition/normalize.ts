@@ -11,6 +11,11 @@ function validNumber(v: number | null | undefined): number | null {
   return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
 }
 
+function positive(v: number | null | undefined): number | null {
+  const n = validNumber(v);
+  return n !== null && n > 0 ? n : null;
+}
+
 function nutrientsOrNull(n: Nutrients): Nutrients {
   return {
     calories: n.calories === null ? null : round(n.calories, 2),
@@ -132,7 +137,7 @@ function scaleFrom100g(n: Nutrients, grams: number): Nutrients {
  * documented, unit-agnostic formula N = amount × w/100 × q. No portions → a
  * single 100 g serving, as the docs instruct.
  */
-export function normalizePassioFood(food: PassioFood, barcode: string): FoodCandidate {
+export function normalizePassioFood(food: PassioFood, barcode: string | null = null): FoodCandidate {
   const base = per100g(food);
   const servings: ServingOption[] = [];
   for (const portion of food.portions ?? []) {
@@ -142,7 +147,8 @@ export function normalizePassioFood(food: PassioFood, barcode: string): FoodCand
     servings.push({
       label: servingLabel(portion.name?.trim() || undefined, 1, measure),
       weightG: measure.unit === "g" ? measure.value : null,
-      defaultQuantity: validNumber(q) && q! > 0 ? q! : 1,
+      // Label portions carry the serving count in `quantity` (e.g. 2 × tbsp of 16 g).
+      defaultQuantity: positive(q) ?? positive(portion.quantity) ?? 1,
       nutrients: scaleFrom100g(base, measure.value),
     });
   }
@@ -151,11 +157,12 @@ export function normalizePassioFood(food: PassioFood, barcode: string): FoodCand
   }
   return {
     name: food.name.trim(),
-    providerRef: food.refCode ?? food.branded?.productCode ?? barcode,
+    providerRef: food.refCode ?? food.branded?.productCode ?? barcode ?? null,
     servings,
     providerDetails: compact({
       passioFoodId: food.id,
       brandOwner: food.branded?.owner,
+      ingredientsText: food.branded?.ingredients?.trim().slice(0, 1000) || undefined,
       productCode: food.branded?.productCode ?? barcode,
     }),
   };

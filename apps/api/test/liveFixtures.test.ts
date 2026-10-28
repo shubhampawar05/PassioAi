@@ -52,3 +52,17 @@ describe("live Passio response shapes", () => {
     expect(c.servings[2]).toMatchObject({ weightG: 1, defaultQuantity: 100 });
   });
 });
+
+describe("live label scan (extractPackagedProduct)", () => {
+  it("defaults to the label's 2 × tbsp (16 g) serving, totalling the label's 190 kcal", () => {
+    const c = normalizePassioFood(passioFoodSchema.parse(fixture("passio-extractPackagedProduct.live.json")));
+    expect(c.name).toBe("Crunchy Peanut Butter");
+    expect(c.providerRef).toBeNull();
+    const tbsp = c.servings[0]!;
+    expect(tbsp).toMatchObject({ label: "tbsp (16 g)", weightG: 16, defaultQuantity: 2 });
+    expect(tbsp.nutrients).toEqual({ calories: 95, proteinG: 4, carbohydratesG: 3.5, fatG: 8 });
+    // Default serving (2 tbsp) matches the printed label: 190 kcal, 8 g protein, 7 g carbs, 16 g fat.
+    expect(tbsp.nutrients.calories! * tbsp.defaultQuantity).toBe(190);
+    expect(c.providerDetails.ingredientsText).toBe("roasted peanuts; sugar; palm oil; salt");
+  });
+});

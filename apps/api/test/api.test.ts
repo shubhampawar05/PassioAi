@@ -25,6 +25,7 @@ const okResult: RecognitionResult = {
 const fakeProvider = {
   mode: "passio" as const,
   recognizeImage: vi.fn(async () => okResult),
+  recognizeLabel: vi.fn(async () => okResult),
   recognizeText: vi.fn(async () => okResult),
   lookupBarcode: vi.fn(async () => okResult),
 } satisfies FoodRecognitionProvider;
@@ -105,6 +106,41 @@ describe("POST /api/food-recognition", () => {
     expect(res.status).toBe(200);
     expect(res.body.inputSummary).toBe("photo (image/jpeg, 1 KB)");
     expect(fakeProvider.recognizeImage).toHaveBeenCalledWith(expect.any(Buffer), "image/jpeg");
+  });
+
+  it("routes inputType=label uploads to label recognition", async () => {
+    const res = await request(app)
+      .post("/api/food-recognition")
+      .field("inputType", "label")
+      .attach("image", JPEG, { filename: "label.jpg", contentType: "image/jpeg" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ inputType: "label", inputSummary: "label photo (image/jpeg, 1 KB)" });
+    expect(fakeProvider.recognizeLabel).toHaveBeenCalledWith(expect.any(Buffer), "image/jpeg");
+    expect(fakeProvider.recognizeImage).not.toHaveBeenCalled();
+  });
+
+  it("applies type, magic-byte, and size checks to label uploads", async () => {
+    const pdf = await request(app)
+      .post("/api/food-recognition")
+      .field("inputType", "label")
+      .attach("image", Buffer.from("%PDF-1.7"), { filename: "x.pdf", contentType: "application/pdf" });
+    expect(pdf.body.error.code).toBe("UNSUPPORTED_MEDIA");
+    const fake = await request(app)
+      .post("/api/food-recognition")
+      .field("inputType", "label")
+      .attach("image", Buffer.from("not an image"), { filename: "x.jpg", contentType: "image/jpeg" });
+    expect(fake.body.error.code).toBe("UNSUPPORTED_MEDIA");
+    const big = await request(app)
+      .post("/api/food-recognition")
+      .field("inputType", "label")
+      .attach("image", Buffer.concat([JPEG, Buffer.alloc(8 * 1024 * 1024)]), { filename: "big.jpg", contentType: "image/jpeg" });
+    expect(big.body.error.code).toBe("FILE_TOO_LARGE");
+    const wrongType = await request(app)
+      .post("/api/food-recognition")
+      .field("inputType", "barcode")
+      .attach("image", JPEG, { filename: "x.jpg", contentType: "image/jpeg" });
+    expect(wrongType.status).toBe(400);
+    expect(fakeProvider.recognizeLabel).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -189,6 +225,17 @@ describe("food logs", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
     expect(await prisma.foodLogEntry.count()).toBe(0);
+  });
+
+  it("saves and lists a label-scan entry, and rejects unknown input types", async () => {
+    const created = await request(app).post("/api/food-logs").send(entry({ inputType: "label", loggedAt: "2026-10-28T12:00:00Z" }));
+    expect(created.status).toBe(201);
+    expect(created.body.inputType).toBe("label");
+    const list = await request(app).get("/api/food-logs").query({ date: "2026-10-28" });
+    expect(list.body.entries.map((e: { inputType: string }) => e.inputType)).toEqual(["label"]);
+    const bad = await request(app).post("/api/food-logs").send(entry({ inputType: "fax" }));
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("lists entries for a day newest first and retrieves one", async () => {

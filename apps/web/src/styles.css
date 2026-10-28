@@ -129,3 +129,39 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 .correction { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
 .not-included { margin-top: 16px; color: var(--muted); font-size: 0.9rem; }
 .footer { color: var(--muted); font-size: 0.8rem; padding-bottom: 24px; }
+
+.scanner { margin: 12px 0; display: grid; gap: 8px; }
+.scanner-video { width: 100%; max-width: 480px; aspect-ratio: 4 / 3; object-fit: cover; background: #000; border-radius: 8px; }
+.ingredients { margin-top: 8px; }
+
+.checks { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.checks legend { font-weight: 500; padding: 0 4px; }
+.checks .checkbox { margin: 4px 0; font-weight: normal; }
+.chips { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 10px; background: var(--bg); }
+.chip button { border: none; background: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; min-width: 28px; min-height: 28px; border-radius: 50%; }
+.success.inline { display: inline-block; margin: 0; padding: 6px 10px; }
+
+.guidance-notice { font-size: 0.85rem; color: var(--warn-text); background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.thread { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 12px; }
+.turn { border-top: 1px solid var(--border); padding-top: 12px; }
+.turn-q { margin: 0 0 6px; }
+.advisor-answer { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.markdown h1, .markdown h2, .markdown h3 { font-size: 1rem; margin: 10px 0 4px; }
+.markdown ul, .markdown ol { padding-left: 20px; }
+.markdown p { margin: 6px 0; }
+.inline-link { padding: 0; min-height: auto; font-size: inherit; }
+.advisor-form { margin-top: 12px; }
+
+.plan-day { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 8px; }
+.plan-day h3 { font-size: 1rem; margin: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.plan-meal { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.plan-meal.excluded { opacity: 0.55; }
+.plan-meal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.plan-meal details { margin-top: 6px; }
+.plan-meal ul { margin: 4px 0; padding-left: 20px; }
+.plan-shopping { margin-top: 16px; }
+.badge.status-preview { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
+.badge.status-generating { background: var(--mock-bg); color: var(--mock-text); border-color: transparent; }
+.badge.status-ready { background: var(--ok-bg); color: var(--ok-text); border-color: transparent; }
+.badge.status-failed { background: var(--error-bg); color: var(--danger); border-color: transparent; }

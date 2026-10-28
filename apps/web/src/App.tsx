@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
+import { AdvisorView } from "./components/AdvisorView";
 import { Dashboard } from "./components/Dashboard";
 import { Diary } from "./components/Diary";
 import { LogFood } from "./components/LogFood";
+import { MealPlansView } from "./components/MealPlansView";
+import { ProfileView } from "./components/ProfileView";
 import { api, type Health } from "./lib/api";
 import { todayIso } from "./lib/format";
 
-type View = "dashboard" | "log" | "diary";
+type View = "dashboard" | "log" | "diary" | "plans" | "advisor" | "profile";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "log", label: "Log food" },
   { id: "diary", label: "Diary" },
+  { id: "plans", label: "Meal plans" },
+  { id: "advisor", label: "Advisor" },
+  { id: "profile", label: "Profile" },
 ];
 
 export function App() {
@@ -83,6 +89,11 @@ export function App() {
           />
         )}
         {view === "diary" && <Diary date={date} onDateChange={setDate} />}
+        {view === "plans" && (
+          <MealPlansView onEditProfile={() => setView("profile")} onLogged={() => setDate(todayIso())} />
+        )}
+        {view === "advisor" && <AdvisorView onEditProfile={() => setView("profile")} />}
+        {view === "profile" && <ProfileView />}
       </main>
 
       <footer className="container footer">

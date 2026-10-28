@@ -46,4 +46,4 @@ export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-export const INPUT_LABELS = { photo: "Photo", text: "Text", barcode: "Barcode", voice: "Voice" } as const;
+export const INPUT_LABELS = { photo: "Photo", text: "Text", barcode: "Barcode", voice: "Voice", label: "Label", meal_plan: "Meal plan" } as const;

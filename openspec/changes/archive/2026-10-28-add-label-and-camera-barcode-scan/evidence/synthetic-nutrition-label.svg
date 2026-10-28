@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="-90 0 600 600" font-family="Helvetica, Arial, sans-serif">
+  <rect x="-90" width="600" height="600" fill="#fff"/>
+  <text x="20" y="36" font-size="20" font-weight="bold">DEMO Crunchy Peanut Butter</text>
+  <rect x="16" y="50" width="388" height="530" fill="none" stroke="#000" stroke-width="3"/>
+  <text x="28" y="98" font-size="40" font-weight="900">Nutrition Facts</text>
+  <text x="28" y="128" font-size="17">8 servings per container</text>
+  <text x="28" y="152" font-size="18" font-weight="bold">Serving size</text>
+  <text x="392" y="152" font-size="18" font-weight="bold" text-anchor="end">2 Tbsp (32g)</text>
+  <rect x="28" y="162" width="364" height="12" fill="#000"/>
+  <text x="28" y="196" font-size="15" font-weight="bold">Amount per serving</text>
+  <text x="28" y="232" font-size="34" font-weight="900">Calories</text>
+  <text x="392" y="232" font-size="38" font-weight="900" text-anchor="end">190</text>
+  <rect x="28" y="242" width="364" height="6" fill="#000"/>
+  <text x="392" y="266" font-size="14" font-weight="bold" text-anchor="end">% Daily Value*</text>
+  <line x1="28" y1="274" x2="392" y2="274" stroke="#000"/>
+  <text x="28" y="296" font-size="17"><tspan font-weight="bold">Total Fat</tspan> 16g</text><text x="392" y="296" font-size="17" font-weight="bold" text-anchor="end">21%</text>
+  <line x1="28" y1="306" x2="392" y2="306" stroke="#000"/>
+  <text x="48" y="328" font-size="17">Saturated Fat 3g</text><text x="392" y="328" font-size="17" font-weight="bold" text-anchor="end">15%</text>
+  <line x1="28" y1="338" x2="392" y2="338" stroke="#000"/>
+  <text x="28" y="360" font-size="17"><tspan font-weight="bold">Sodium</tspan> 140mg</text><text x="392" y="360" font-size="17" font-weight="bold" text-anchor="end">6%</text>
+  <line x1="28" y1="370" x2="392" y2="370" stroke="#000"/>
+  <text x="28" y="392" font-size="17"><tspan font-weight="bold">Total Carbohydrate</tspan> 7g</text><text x="392" y="392" font-size="17" font-weight="bold" text-anchor="end">3%</text>
+  <line x1="28" y1="402" x2="392" y2="402" stroke="#000"/>
+  <text x="48" y="424" font-size="17">Dietary Fiber 2g</text>
+  <line x1="28" y1="434" x2="392" y2="434" stroke="#000"/>
+  <text x="48" y="456" font-size="17">Total Sugars 3g</text>
+  <line x1="28" y1="466" x2="392" y2="466" stroke="#000"/>
+  <text x="28" y="488" font-size="17"><tspan font-weight="bold">Protein</tspan> 8g</text>
+  <rect x="28" y="498" width="364" height="12" fill="#000"/>
+  <text x="28" y="534" font-size="12">INGREDIENTS: ROASTED PEANUTS, SUGAR, PALM OIL, SALT.</text>
+  <text x="28" y="556" font-size="12">CONTAINS: PEANUTS.</text>
+</svg>

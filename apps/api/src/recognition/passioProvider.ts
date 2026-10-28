@@ -12,6 +12,7 @@ import type { FoodRecognitionProvider, RecognitionResult } from "./types.js";
 /** Documented routes (base https://api.passiolife.com/v2). */
 const ROUTES = {
   image: "/products/napi/tools/vision/extractIngredientsAutoTyped",
+  label: "/products/napi/tools/vision/extractPackagedProduct",
   // Meal-log route: in live testing extractIngredients returned HTTP 500 for
   // multi-food sentences that this route handled.
   text: "/products/napi/tools/extractMealLogAction",
@@ -22,8 +23,9 @@ export class PassioProvider implements FoodRecognitionProvider {
   readonly mode = "passio" as const;
   private readonly client: PassioClient;
 
-  constructor(options: PassioClientOptions) {
-    this.client = new PassioClient(options);
+  /** Pass a shared PassioClient so recognition and guidance reuse one token cache. */
+  constructor(clientOrOptions: PassioClient | PassioClientOptions) {
+    this.client = clientOrOptions instanceof PassioClient ? clientOrOptions : new PassioClient(clientOrOptions);
   }
 
   async recognizeImage(image: Buffer, mimeType: string): Promise<RecognitionResult> {
@@ -32,6 +34,22 @@ export class PassioProvider implements FoodRecognitionProvider {
       logLabel: "vision.extractIngredientsAutoTyped",
     });
     return this.parseExtract(res.status, res.body, res.requestId);
+  }
+
+  async recognizeLabel(image: Buffer, mimeType: string): Promise<RecognitionResult> {
+    const res = await this.client.request("POST", ROUTES.label, {
+      json: { image: `data:${mimeType};base64,${image.toString("base64")}` },
+      logLabel: "vision.extractPackagedProduct",
+    });
+    // Live response follows the NewPassioFood schema (name, nutrients per 100 g, portions, branded).
+    if (res.status === 404 || res.body === null || (Array.isArray(res.body) && res.body.length === 0)) {
+      return { source: "passio", candidates: [], requestId: res.requestId };
+    }
+    const parsed = passioFoodSchema.safeParse(res.body);
+    if (!parsed.success) {
+      throw new AppError("PROVIDER_BAD_RESPONSE", "Passio label response was not in the documented format");
+    }
+    return { source: "passio", candidates: [normalizePassioFood(parsed.data)], requestId: res.requestId };
   }
 
   async recognizeText(text: string): Promise<RecognitionResult> {

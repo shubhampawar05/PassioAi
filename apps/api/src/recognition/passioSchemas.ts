@@ -85,7 +85,7 @@ export const passioFoodSchema = z.looseObject({
   ingredients: z
     .array(z.looseObject({ name: optStr, nutrients: z.array(nutrientEntrySchema).nullish() }))
     .nullish(),
-  branded: z.looseObject({ owner: optStr, productCode: optStr }).nullish(),
+  branded: z.looseObject({ owner: optStr, productCode: optStr, ingredients: optStr }).nullish(),
   refCode: optStr,
 });
 

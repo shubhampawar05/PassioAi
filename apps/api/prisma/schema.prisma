@@ -12,6 +12,8 @@ enum InputType {
   text
   barcode
   voice
+  label
+  meal_plan
 }
 
 /// A user-confirmed food diary entry. Nutrient columns are nullable: null means
@@ -42,4 +44,54 @@ model FoodLogEntry {
 
   @@index([demoUserId, loggedAt(sort: Desc)])
   @@map("food_log_entries")
+}
+
+enum NutritionGoal {
+  balanced
+  more_protein
+  more_fiber
+  more_vegetables
+  steady_energy
+}
+
+/// Demo nutrition profile used as advisor/meal-plan context. Deliberately holds
+/// no health data (no age, sex, body measurements, conditions, or medications).
+model NutritionProfile {
+  id                 String        @id @default(uuid()) @db.Uuid
+  demoUserId         String        @unique @map("demo_user_id")
+  goal               NutritionGoal @default(balanced)
+  dailyCalorieTarget Int?          @map("daily_calorie_target")
+  dietPreferences    String[]      @default([]) @map("diet_preferences")
+  avoidFoods         String[]      @default([]) @map("avoid_foods")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("nutrition_profiles")
+}
+
+enum MealPlanStatus {
+  preview
+  generating
+  ready
+  failed
+}
+
+/// A Passio-generated meal plan. Raw Passio JSON stays server-side so regenerate,
+/// approve, and log requests never trust client-supplied plan data.
+model MealPlan {
+  id                    String         @id @default(uuid()) @db.Uuid
+  demoUserId            String         @map("demo_user_id")
+  status                MealPlanStatus @default(preview)
+  days                  Int
+  notes                 String?        @db.VarChar(300)
+  profileSnapshot       Json           @map("profile_snapshot")
+  previewPayload        Json           @map("preview_payload")
+  planPayload           Json?          @map("plan_payload")
+  shoppingListHumanized Json?          @map("shopping_list_humanized")
+  errorCode             String?        @map("error_code") @db.VarChar(40)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([demoUserId, createdAt(sort: Desc)])
+  @@map("meal_plans")
 }

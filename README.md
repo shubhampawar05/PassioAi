@@ -29,12 +29,15 @@ Every fact here was checked against https://passio.gitbook.io/nutrition-ai on 20
 |---|---|---|
 | Photo upload (one or several foods) | ✅ Implemented | `POST /v2/products/napi/tools/vision/extractIngredientsAutoTyped` (base64 data URI) |
 | Text / natural language | ✅ Implemented | `POST /v2/products/napi/tools/extractMealLogAction` (`{content}`). `extractIngredients` returned HTTP 500 for multi-food sentences in live testing. |
-| Barcode (manual entry) | ✅ Implemented | `GET /v2/products/napi/food/productCode/{code}` |
+| Barcode: camera scan or typed | ✅ Implemented. The camera scanner decodes EAN/UPC **in the browser**, using the native `BarcodeDetector` or the self-hosted `barcode-detector` / zxing-wasm fallback; Passio is not involved in scanning. Camera frames never leave the device. Needs https or localhost. | `GET /v2/products/napi/food/productCode/{code}` |
+| Nutrition-facts label scan | ✅ Implemented (Nutrition label tab). The default serving comes from the label, e.g. 2 × tbsp (16 g). Ingredient text is shown when returned. Passio did **not** return the "Contains" allergen line in testing, so the app makes no allergen claims. ~17k tokens per scan. | `POST /v2/products/napi/tools/vision/extractPackagedProduct` |
 | Voice | ✅ Implemented as **browser** speech-to-text (Web Speech API). The transcript is editable, then sent through the text route. Passio does **not** do speech recognition here. | same as text |
 | Correct and retry | ✅ The user edits the description and it is re-recognized through the text route | same as text |
-| Live camera recognition / live barcode scanning | ❌ Not included. Passio has **no web SDK**; the docs say REST is the only option for web. On mobile, the photo input opens the camera (`capture="environment"`). | n/a |
-| Nutrition-facts label scan | ❌ Not included. `extractPackagedProduct` is documented, but its example and schema disagree. The photo route already detects packaged products automatically. | n/a |
-| Meal plans / AI nutrition advisor | ❌ Not included. The endpoints are documented, but they produce free-text nutrition guidance, which falls outside the POC's no-clinical-advice boundary. Candidate follow-up. | n/a |
+| Live camera *food* recognition | ❌ Not included. Passio has **no web SDK**; the docs say REST is the only option for web. On mobile, the photo and label inputs open the camera (`capture="environment"`). | n/a |
+| Nutrition profile | ✅ Implemented (Profile tab). Fields: goal (from a fixed list), optional calorie target, diet preferences, and foods to avoid. No age, weight, conditions, or medications. A weight-loss goal is excluded pending product and clinical review. | n/a (stored in PostgreSQL) |
+| AI nutrition advisor | ✅ Implemented (Advisor tab). Each question is sent with safety instructions, the profile, today's log and totals, and the last 3 turns as context. Medical questions are declined before Passio is called. Answers are rendered as markdown without raw HTML. The conversation is not saved. ~650 tokens per question. | `POST /v2/products/napi/tools/nutritionAdvisor` (`{content, message}` → `{answer}`) |
+| Meal plans | ✅ Implemented (Meal plans tab). 1–7 day preview based on the profile and notes. Replace any meal, then approve to generate the full plan in the background (status is polled). The full plan shows recipes, ingredients, preparation, Passio's per-recipe and per-day macros, and a shopping list, which can be made shopping-friendly. "Log this meal" adds a diary entry using Passio's recipe macros, computed on the server. Plans are saved and can be deleted; logged meals stay in the diary. | `generateMealPlanPreview`, `generateMealPlan`, `humanizeShoppingList` |
+| Meal-plan extras not included | ❌ `regenerateMeals` and `updateMealPlanShoppingList` (request and response formats are undocumented), affiliate grocery links, and `?model=` selection | n/a |
 
 **Auth** follows the docs: `POST /v2/token-cache/unified/oauth/token/{PASSIO_API_KEY}` returns `access_token`, `expires_in`, and `customer_id`. Each call then sends `Authorization: Bearer …` and `Passio-ID: …`. The token is cached in memory until 60 s before it expires, and refreshed once on a 401.
 
@@ -58,6 +61,17 @@ The app never substitutes mock data when Passio fails.
 - **Text route shape:** `extractMealLogAction` returns an array of `{action, mealTime, date, items[]}`. Items in an `action: "remove"` group are ignored.
 - **Barcode products:** nutrients are per 100 g (per 100 ml for drinks), with `shortName`s `calories`, `protein`, `carbs`, `fat`. Portions can be in **ml**, e.g. "can (355 ml)", and are scaled with Passio's formula `amount × weight/100`.
 - **Missing vs zero:** a nutrient Passio does not return shows **"Not available"**. A real zero, such as Diet Coke's 0 kcal, stays 0.
+
+**Meal-plan cost and timing (measured live, 2 days):**
+
+| Step | Tokens | Time |
+|---|---|---|
+| Preview | ~5,000 | 3–4 s |
+| Regenerate | ~5,300 | ~3 s |
+| Full plan | **~133,000** | 14–16 s (the docs say 1.5–6 min) |
+| Shopping list | ~2,600 | ~3 s |
+
+The full plan runs in an in-process background job. If the API restarts mid-generation, the plan is marked `failed` with `INTERRUPTED` and can be re-approved. Passio's plans can miss the calorie target (2,359 kcal against 2,000 in one test); the app shows Passio's numbers as returned.
 
 **Account requirements.** You need a Passio API key from https://accounts.passiolife.com (Product Details → Account Info). Usage is token-metered, and a request is billed for every recognition. The docs show no plan gate on the vision, text, or barcode routes.
 
@@ -203,7 +217,12 @@ What the automated tests cover:
 7. Check that the dashboard totals equal the sum of the entries. Partial totals should be flagged.
 8. In the Diary, open Details, then delete the entry. Totals should update.
 9. Try an empty text, a non-image file, a 5-digit barcode, and a wrong key. Each should show a clear error with a retry option.
-10. Run `SMOKE_SECRET="$PASSIO_API_KEY" npm run smoke`, or search `apps/web/dist` for the key. It should not be found.
+10. Go to Log food → Nutrition label and upload a photo of a Nutrition Facts panel. The serving and calories should match the printed label, and the ingredients should appear with the allergen reminder.
+11. Go to Log food → Barcode → Scan with camera on http://localhost:8080, and hold a product barcode to the camera. It should look the product up and turn the camera off. Deny camera permission once: the app should explain why and keep manual entry available.
+12. Go to Profile, set a goal, a diet and a food to avoid, then save and reload. The values should persist.
+13. Go to Advisor and ask "Give me a high-protein snack idea". The answer should respect the profile and show the not-medical-advice notice. Then ask "What should I eat to reduce Ozempic nausea?". It should be declined, with no call to Passio (check the API logs).
+14. Go to Meal plans, create a 2-day preview, tick "Replace" on one meal and regenerate it: only that meal should change. Then approve: the status should go from generating to ready, with recipes and macros shown. Log a meal and confirm it appears on the dashboard. Click "Make shopping-friendly" and check the list updates.
+15. Run `SMOKE_SECRET="$PASSIO_API_KEY" npm run smoke`, or search `apps/web/dist` for the key. It should not be found.
 
 ## Data, privacy and timezone
 
@@ -212,6 +231,11 @@ What the automated tests cover:
   - Nutrients are stored twice: per serving (`*_per_serving`) and as totals (`calories`, `protein_g`, `carbohydrates_g`, `fat_g`, all nullable).
   - Also: `provider`, `passio_ref` (the refCode or barcode), `provider_payload` (a small normalized excerpt only), `created_at`, and `updated_at`.
   - Indexed on `(demo_user_id, logged_at DESC)`.
+- **Advisor safety boundary:**
+  - Questions about medications (including GLP-1 drugs such as Ozempic or Wegovy), dosing, side effects, diagnosis, symptoms, disease treatment, or pregnancy get a 422 `ADVISOR_OUT_OF_SCOPE` response and are never sent to Passio.
+  - Every answer is labelled as general information, not medical advice.
+  - This is a demo-level keyword guard; a clinical and compliance review is required before any real use.
+- **Sent to Passio as advisor context:** the demo profile, today's food names and totals, and the last 3 turns of the conversation. Use demo data only.
 - **Raw images and audio are never stored.** Images are resized in the browser, forwarded to Passio, and then discarded. Logs record route, status, timing, and Passio `X-Request-ID` only. They never contain image data, text content, keys, or tokens.
 - **Totals are computed on the server** as per-serving value × quantity. Any totals the client sends are ignored. Editing a quantity recalculates from the stored per-serving values; it does not call Passio again.
 - **Timezone:**

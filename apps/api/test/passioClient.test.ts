@@ -160,3 +160,40 @@ describe("createProvider", () => {
     expect(r.candidates.every((c) => c.name.startsWith("[MOCK]"))).toBe(true);
   });
 });
+
+describe("PassioProvider.recognizeLabel", () => {
+  it("posts a data URI to extractPackagedProduct and normalizes NewPassioFood", async () => {
+    const { provider, fetchImpl } = setup([
+      tokenOk(),
+      json(200, {
+        name: "Granola",
+        nutrients: [{ amount: 400, nutrient: { name: "Energy", unit: "KCAL", shortName: "calories" } }],
+        portions: [{ name: "cup", quantity: 1, weight: { unit: "g", value: 50 } }],
+        branded: { ingredients: "oats; honey" },
+      }),
+    ]);
+    const result = await provider.recognizeLabel(Buffer.from([0xff, 0xd8, 0xff]), "image/jpeg");
+    const [url, init] = fetchImpl.mock.calls[1]!;
+    expect(url).toBe(`${BASE}/products/napi/tools/vision/extractPackagedProduct`);
+    expect(JSON.parse(String(init?.body)).image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(result.candidates[0]).toMatchObject({ name: "Granola", providerDetails: { ingredientsText: "oats; honey" } });
+    expect(result.candidates[0]!.servings[0]!.nutrients.calories).toBe(200);
+  });
+
+  it("returns no candidates on 404 or an empty body", async () => {
+    await expect(setup([tokenOk(), json(404, { code: 404 })]).provider.recognizeLabel(Buffer.from([1]), "image/png")).resolves.toMatchObject({ candidates: [] });
+    await expect(setup([tokenOk(), json(200, undefined)]).provider.recognizeLabel(Buffer.from([1]), "image/png")).resolves.toMatchObject({ candidates: [] });
+  });
+
+  it("maps 400 to PROVIDER_REJECTED_INPUT and malformed bodies to PROVIDER_BAD_RESPONSE", async () => {
+    await expectCode(setup([tokenOk(), json(400, { cause: "no label" })]).provider.recognizeLabel(Buffer.from([1]), "image/png"), "PROVIDER_REJECTED_INPUT");
+    await expectCode(setup([tokenOk(), json(200, { nutrients: [] })]).provider.recognizeLabel(Buffer.from([1]), "image/png"), "PROVIDER_BAD_RESPONSE");
+  });
+
+  it("is unavailable without a key and labeled in mock mode", async () => {
+    await expectCode(createProvider({ baseUrl: BASE, timeoutMs: 1000, mode: "passio", apiKey: undefined }).recognizeLabel(Buffer.from([1]), "image/png"), "PROVIDER_NOT_CONFIGURED");
+    const mock = await new MockProvider().recognizeLabel();
+    expect(mock.source).toBe("mock");
+    expect(mock.candidates[0]!.name).toMatch(/^\[MOCK\]/);
+  });
+});

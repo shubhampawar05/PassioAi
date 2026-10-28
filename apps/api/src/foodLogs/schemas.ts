@@ -8,7 +8,7 @@ const nutrientValue = z.number().finite().min(0).max(100_000).nullable();
  * client-computed `calories` total) are stripped; totals are computed server-side.
  */
 export const createEntrySchema = z.object({
-  inputType: z.enum(["photo", "text", "barcode", "voice"]),
+  inputType: z.enum(["photo", "text", "barcode", "voice", "label"]),
   inputSummary: z.string().trim().min(1).max(200),
   foodName: z.string().trim().min(1).max(200),
   servingUnit: z.string().trim().min(1).max(100),

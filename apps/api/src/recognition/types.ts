@@ -33,6 +33,8 @@ export type RecognitionResult = {
 export interface FoodRecognitionProvider {
   readonly mode: "passio" | "mock" | "unconfigured";
   recognizeImage(image: Buffer, mimeType: string): Promise<RecognitionResult>;
+  /** Packaged product from a photo of its Nutrition Facts label. */
+  recognizeLabel(image: Buffer, mimeType: string): Promise<RecognitionResult>;
   recognizeText(text: string): Promise<RecognitionResult>;
   lookupBarcode(code: string): Promise<RecognitionResult>;
 }

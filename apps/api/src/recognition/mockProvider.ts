@@ -45,6 +45,24 @@ export class MockProvider implements FoodRecognitionProvider {
     return this.result(MOCK_FOODS);
   }
 
+  async recognizeLabel(): Promise<RecognitionResult> {
+    return this.result([
+      {
+        name: "[MOCK] Packaged peanut butter",
+        providerRef: null,
+        servings: [
+          {
+            label: "tbsp (16 g)",
+            weightG: 16,
+            defaultQuantity: 2,
+            nutrients: { calories: 95, proteinG: 4, carbohydratesG: 3.5, fatG: 8 },
+          },
+        ],
+        providerDetails: { mock: true, ingredientsText: "[MOCK] roasted peanuts; salt" },
+      },
+    ]);
+  }
+
   async recognizeText(text: string): Promise<RecognitionResult> {
     if (/no ?match/i.test(text)) return this.result([]);
     return this.result(MOCK_FOODS);

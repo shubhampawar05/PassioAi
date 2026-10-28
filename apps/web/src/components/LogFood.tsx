@@ -1,14 +1,17 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { api, ApiError, type CreateEntryInput, type RecognitionResponse } from "../lib/api";
-import { ACCEPTED_IMAGE_TYPES, downscaleImage, MAX_UPLOAD_BYTES } from "../lib/image";
+import { downscaleImage } from "../lib/image";
 import { useSpeechToText } from "../lib/speech";
 import { ErrorBox, Spinner } from "./common";
+import { BarcodeScanner } from "./BarcodeScanner";
+import { ImageUploadForm } from "./ImageUploadForm";
 import { ReviewResult } from "./ReviewResult";
 
-type Method = "photo" | "text" | "barcode" | "voice";
+type Method = "photo" | "label" | "text" | "barcode" | "voice";
 
 const METHODS: { id: Method; label: string }[] = [
   { id: "photo", label: "Photo" },
+  { id: "label", label: "Nutrition label" },
   { id: "text", label: "Describe it" },
   { id: "barcode", label: "Barcode" },
   { id: "voice", label: "Voice" },
@@ -26,12 +29,12 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
   const [text, setText] = useState("");
   const [voiceText, setVoiceText] = useState("");
   const [barcode, setBarcode] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  // Remounts the upload forms after a save so their chosen files are cleared.
+  const [formKey, setFormKey] = useState(0);
   const [busy, setBusy] = useState<null | "recognizing" | "saving">(null);
   const [error, setError] = useState<{ message: string; retry?: () => void } | null>(null);
   const [result, setResult] = useState<RecognitionResponse | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const onTranscript = useCallback((t: string) => setVoiceText((prev) => (prev ? `${prev} ${t}` : t)), []);
   const speech = useSpeechToText(onTranscript);
@@ -50,10 +53,9 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
     }
   };
 
-  const submitPhoto = () => {
-    if (!file) return;
-    void recognize(async () => api.recognizePhoto(await downscaleImage(file)));
-  };
+  const submitPhoto = (file: File) => void recognize(async () => api.recognizePhoto(await downscaleImage(file)));
+  const submitLabel = (file: File) =>
+    void recognize(async () => api.recognizeLabel(await downscaleImage(file, 1600, 0.9)));
 
   const save = async (entries: CreateEntryInput[]) => {
     setBusy("saving");
@@ -64,8 +66,7 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
       setText("");
       setVoiceText("");
       setBarcode("");
-      setFile(null);
-      if (fileInput.current) fileInput.current.value = "";
+      setFormKey((k) => k + 1);
       onSaved();
     } catch (e) {
       setError({ message: e instanceof ApiError ? e.message : "Saving failed" });
@@ -107,6 +108,7 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
             className={`tab ${method === m.id ? "active" : ""}`}
             onClick={() => {
               setMethod(m.id);
+              setScanning(false);
               setError(null);
             }}
           >
@@ -117,41 +119,27 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
 
       <div className="tab-panel" role="tabpanel">
         {method === "photo" && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitPhoto();
-            }}
-          >
-            <label htmlFor="photo">Choose or take a photo of your food (JPEG, PNG, WebP, or GIF, up to 8 MB)</label>
-            <input
-              ref={fileInput}
-              id="photo"
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(",")}
-              capture="environment"
-              disabled={disabled}
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                setFileError(null);
-                if (f && !ACCEPTED_IMAGE_TYPES.includes(f.type)) {
-                  setFileError("Unsupported file type. Use a JPEG, PNG, WebP, or GIF image.");
-                  setFile(null);
-                } else if (f && f.size > MAX_UPLOAD_BYTES) {
-                  setFileError("Image must be 8 MB or smaller.");
-                  setFile(null);
-                } else setFile(f);
-              }}
-            />
-            {fileError && <p className="field-error">{fileError}</p>}
-            <p className="muted small">
-              The image is resized in your browser, sent to Passio via our server for recognition, and not stored.
-              Multiple foods in one photo are supported.
-            </p>
-            <button type="submit" className="btn primary" disabled={disabled || !file}>
-              Recognize photo
-            </button>
-          </form>
+          <ImageUploadForm
+            key={`photo-${formKey}`}
+            id="photo"
+            label="Choose or take a photo of your food (JPEG, PNG, WebP, or GIF, up to 8 MB)"
+            submitLabel="Recognize photo"
+            disabled={disabled}
+            onSubmit={submitPhoto}
+            hint="The image is resized in your browser, sent to Passio via our server for recognition, and not stored. Multiple foods in one photo are supported."
+          />
+        )}
+
+        {method === "label" && (
+          <ImageUploadForm
+            key={`label-${formKey}`}
+            id="label-photo"
+            label="Photograph the Nutrition Facts panel of a packaged food"
+            submitLabel="Read nutrition label"
+            disabled={disabled}
+            onSubmit={submitLabel}
+            hint="Fill the frame with the whole panel, keep it flat, and avoid glare. Passio reads the label; the image is not stored. Label scans take a few seconds and cost more Passio tokens than a food photo."
+          />
         )}
 
         {method === "text" && (
@@ -194,13 +182,30 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
               aria-invalid={barcode !== "" && !barcodeValid}
               onChange={(e) => setBarcode(e.target.value.replace(/[^\d]/g, ""))}
             />
+            <div className="actions">
+              <button type="submit" className="btn primary" disabled={disabled || !barcodeValid}>
+                Look up barcode
+              </button>
+              {!scanning && (
+                <button type="button" className="btn secondary" disabled={disabled} onClick={() => setScanning(true)}>
+                  📷 Scan with camera
+                </button>
+              )}
+            </div>
+            {scanning && (
+              <BarcodeScanner
+                onClose={() => setScanning(false)}
+                onDetected={(code) => {
+                  setScanning(false);
+                  setBarcode(code);
+                  void recognize(() => api.recognizeBarcode(code));
+                }}
+              />
+            )}
             <p className="muted small">
-              Live camera barcode scanning is not included in this POC (Passio has no web SDK). Tip: a photo of a
-              barcode or package also works in the Photo tab.
+              The camera scanner decodes the barcode in your browser (not Passio); the number is then looked up in
+              Passio. Tip: the Nutrition label tab reads packaged foods without a barcode.
             </p>
-            <button type="submit" className="btn primary" disabled={disabled || !barcodeValid}>
-              Look up barcode
-            </button>
           </form>
         )}
 
@@ -252,8 +257,7 @@ export function LogFood({ onSaved }: { onSaved: () => void }) {
       <details className="not-included">
         <summary>Not included in this POC</summary>
         <ul>
-          <li>Dedicated nutrition-facts label scanning (documented by Passio, not implemented here).</li>
-          <li>Live camera recognition and live barcode scanning (no Passio web SDK).</li>
+          <li>Live camera food recognition (Passio has no web SDK; use the Photo tab).</li>
           <li>Meal plans and the AI nutrition advisor.</li>
         </ul>
       </details>

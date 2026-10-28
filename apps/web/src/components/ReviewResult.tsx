@@ -76,7 +76,9 @@ export function ReviewResult({ result, saving, onSave, onRetryText, onCancel }: 
 
       {result.candidates.length === 0 ? (
         <p className="empty" role="status">
-          No foods were recognized. Try a clearer photo, a different barcode, or describe the food below.
+          {result.inputType === "label"
+            ? "Passio could not read a product from this label. Retake the photo closer, with the whole Nutrition Facts panel in frame and no glare, or describe the food below."
+            : "No foods were recognized. Try a clearer photo, a different barcode, or describe the food below."}
         </p>
       ) : (
         <ul className="candidates">
@@ -84,6 +86,7 @@ export function ReviewResult({ result, saving, onSave, onRetryText, onCancel }: 
             const s = selections[i]!;
             const serving = c.servings[s.servingIndex];
             const qOk = validQty(s.quantity);
+            const ingredients = typeof c.providerDetails.ingredientsText === "string" ? c.providerDetails.ingredientsText : null;
             return (
               <li key={`${c.name}-${i}`} className={`candidate ${s.include ? "" : "excluded"}`}>
                 <label className="checkbox">
@@ -124,6 +127,13 @@ export function ReviewResult({ result, saving, onSave, onRetryText, onCancel }: 
                   </>
                 ) : (
                   <p className="muted">No serving information available.</p>
+                )}
+                {ingredients && (
+                  <p className="muted small ingredients">
+                    <strong>Ingredients (from Passio):</strong> {ingredients}
+                    <br />
+                    Always check the package for allergens.
+                  </p>
                 )}
               </li>
             );

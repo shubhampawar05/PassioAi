@@ -37,7 +37,7 @@ export function recognitionRouter(provider: FoodRecognitionProvider): Router {
     if (req.is("multipart/form-data")) {
       upload.single("image")(req, res, (err: unknown) => {
         if (err) return next(err);
-        handlePhoto(req, provider).then((body) => res.json(body), next);
+        handleImageUpload(req, provider).then((body) => res.json(body), next);
       });
       return;
     }
@@ -47,7 +47,12 @@ export function recognitionRouter(provider: FoodRecognitionProvider): Router {
   return router;
 }
 
-async function handlePhoto(req: Request, provider: FoodRecognitionProvider): Promise<RecognitionResponse> {
+/** Multipart uploads: `inputType` is `photo` (default) or `label` (Nutrition Facts panel). */
+const uploadTypeSchema = z.enum(["photo", "label"]).default("photo");
+
+async function handleImageUpload(req: Request, provider: FoodRecognitionProvider): Promise<RecognitionResponse> {
+  const kind = uploadTypeSchema.safeParse(req.body?.inputType ?? undefined);
+  if (!kind.success) throw validationError(kind.error);
   const file = req.file;
   if (!file) throw new AppError("VALIDATION_ERROR", "Attach an image in the `image` field");
   if (!ALLOWED_MIME.has(file.mimetype)) {
@@ -56,9 +61,13 @@ async function handlePhoto(req: Request, provider: FoodRecognitionProvider): Pro
   const sniffed = sniffImageType(file.buffer);
   if (!sniffed) throw new AppError("UNSUPPORTED_MEDIA", "File content is not a supported image");
   const kb = Math.max(1, Math.round(file.size / 1024));
-  const result = await provider.recognizeImage(file.buffer, sniffed);
+  const result =
+    kind.data === "label"
+      ? await provider.recognizeLabel(file.buffer, sniffed)
+      : await provider.recognizeImage(file.buffer, sniffed);
   // The image buffer is not stored or logged; it is released with the request.
-  return { ...result, inputType: "photo", inputSummary: `photo (${sniffed}, ${kb} KB)` };
+  const prefix = kind.data === "label" ? "label photo" : "photo";
+  return { ...result, inputType: kind.data, inputSummary: `${prefix} (${sniffed}, ${kb} KB)` };
 }
 
 async function handleJson(req: Request, provider: FoodRecognitionProvider): Promise<RecognitionResponse> {
