@@ -1,0 +1,57 @@
+name: passio-poc
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-passio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-passio_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-passio_poc}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-passio}:${POSTGRES_PASSWORD:-passio_dev_password}@db:5432/${POSTGRES_DB:-passio_poc}
+      API_PORT: 3001
+      PASSIO_MODE: ${PASSIO_MODE:-passio}
+      PASSIO_API_KEY: ${PASSIO_API_KEY:-}
+      PASSIO_BASE_URL: ${PASSIO_BASE_URL:-https://api.passiolife.com/v2}
+      PASSIO_TIMEOUT_MS: ${PASSIO_TIMEOUT_MS:-45000}
+      DEMO_USER_ID: ${DEMO_USER_ID:-demo-user}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

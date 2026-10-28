@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InputType {
+  photo
+  text
+  barcode
+  voice
+}
+
+/// A user-confirmed food diary entry. Nutrient columns are nullable: null means
+/// the provider did not return that value (never an implied zero).
+model FoodLogEntry {
+  id                    String    @id @default(uuid()) @db.Uuid
+  demoUserId            String    @map("demo_user_id")
+  loggedAt              DateTime  @default(now()) @map("logged_at") @db.Timestamptz(3)
+  inputType             InputType @map("input_type")
+  inputSummary          String    @map("input_summary") @db.VarChar(200)
+  foodName              String    @map("food_name") @db.VarChar(200)
+  servingUnit           String    @map("serving_unit") @db.VarChar(100)
+  servingWeightG        Decimal?  @map("serving_weight_g") @db.Decimal(10, 2)
+  servingQuantity       Decimal   @map("serving_quantity") @db.Decimal(10, 3)
+  caloriesPerServing    Decimal?  @map("calories_per_serving") @db.Decimal(10, 2)
+  proteinGPerServing    Decimal?  @map("protein_g_per_serving") @db.Decimal(10, 2)
+  carbohydratesGPerServing Decimal? @map("carbohydrates_g_per_serving") @db.Decimal(10, 2)
+  fatGPerServing        Decimal?  @map("fat_g_per_serving") @db.Decimal(10, 2)
+  calories              Decimal?  @db.Decimal(10, 1)
+  proteinG              Decimal?  @map("protein_g") @db.Decimal(10, 1)
+  carbohydratesG        Decimal?  @map("carbohydrates_g") @db.Decimal(10, 1)
+  fatG                  Decimal?  @map("fat_g") @db.Decimal(10, 1)
+  provider              String    @db.VarChar(20)
+  passioRef             String?   @map("passio_ref")
+  providerPayload       Json?     @map("provider_payload")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([demoUserId, loggedAt(sort: Desc)])
+  @@map("food_log_entries")
+}
